@@ -3,6 +3,7 @@ use std::{
     io::{self, Write},
 };
 
+use colored::Colorize;
 use text_io::read;
 
 pub trait EasyUpdate<K, V> {
@@ -71,14 +72,24 @@ fn main() {
         let current_word = &scored_wordlist[0].0;
 
         println!(
-            "Current guess is: {} ({} words left)",
+            "{} {} ({} words left)",
+            "Current guess is:".cyan().bold(),
             current_word,
             scored_wordlist.len()
         );
         println!("What was the result?");
-        println!("- Enter a 0 if the letter does not appear in the word.");
-        println!("- Enter a 1 if the letter does appear in the word, but not in that spot.");
-        println!("- Enter a 2 if the letter was correct.");
+        println!(
+            "- Enter a {} if the letter does not appear in the word.",
+            "0".red()
+        );
+        println!(
+            "- Enter a {} if the letter does appear in the word, but not in that spot.",
+            "1".yellow().bold()
+        );
+        println!(
+            "- Enter a {} if the letter was correct.",
+            "2".green().bold()
+        );
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -140,19 +151,23 @@ fn main() {
             .map(|word| word.to_owned())
             .collect();
 
+        println!("");
         match scored_wordlist.len() {
             2..=10 => {
                 println!(
-                    "Remaining options: {}",
+                    "{} {}",
+                    "Remaining options:".cyan().bold(),
                     scored_wordlist
                         .iter()
                         .map(|(w, _s)| w.to_owned())
                         .collect::<Vec<_>>()
                         .join(", ")
+                        .magenta()
+                        .bold()
                 );
             }
             1 => {
-                println!("Correct word is: {}", scored_wordlist[0].0);
+                println!("Correct word is: {}", scored_wordlist[0].0.green().bold());
                 break;
             }
             0 => {
