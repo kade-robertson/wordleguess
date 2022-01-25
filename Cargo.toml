@@ -9,3 +9,6 @@ edition = "2021"
 rand = "0.8.4"
 text_io = "0.1.9"
 colored = "2.0.0"
+
+[profile.release]
+opt-level = "z"
