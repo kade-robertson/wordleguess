@@ -4,6 +4,7 @@ use std::{
 };
 
 use colored::Colorize;
+use float_ord::{self, FloatOrd};
 use text_io::read;
 
 pub trait EasyUpdate<K, V> {
@@ -20,10 +21,34 @@ impl<K: Eq + core::hash::Hash, V: std::ops::AddAssign> EasyUpdate<K, V> for Hash
     }
 }
 
-fn get_letter_frequency(wordlist: &Vec<String>) -> HashMap<char, u16> {
+/**
+ * words-scored.txt contains the entire wordlist of words.txt, along with a score.
+ *
+ * The score was calculated by finding the mean popularity of a word from 1980 to 2022.
+ *
+ * Then, it was multiplied by 10 ^ 11 to get all values above 1, and then it was additionally
+ * scaled by figuring out the lowest value (~0.88), figuring out what it would take to scale this
+ * to be at least 10 (~11.314), and multiplying all values by that amount. This was to make
+ * taking log_10 later easier, as we'd be guaranteed all word popularity factors were >= 1.
+ */
+fn get_wordlist() -> Vec<(String, FloatOrd<f64>)> {
+    include_str!("words-scored.txt")
+        .to_string()
+        .lines()
+        .map(|line| {
+            let line_split = line.split(',').collect::<Vec<_>>();
+            (
+                line_split[0].to_string(),
+                FloatOrd(line_split[1].parse::<f64>().unwrap_or(10f64).log10()),
+            )
+        })
+        .collect()
+}
+
+fn get_letter_frequency(wordlist: &Vec<(String, FloatOrd<f64>)>) -> HashMap<char, u16> {
     let mut charmap = HashMap::new();
 
-    wordlist.iter().for_each(|word| {
+    wordlist.iter().for_each(|(word, _)| {
         word.chars().for_each(|c| {
             if charmap.contains_key(&c) {
                 (*charmap.get_mut(&c).unwrap()) += 1;
@@ -36,7 +61,7 @@ fn get_letter_frequency(wordlist: &Vec<String>) -> HashMap<char, u16> {
     charmap
 }
 
-fn get_word_score(word: &String, letter_frequency: &HashMap<char, u16>) -> u16 {
+fn get_word_score(word: &String, letter_frequency: &HashMap<char, u16>) -> f64 {
     let mut seen_chars: HashSet<char> = HashSet::new();
     let mut score = 0;
 
@@ -48,23 +73,26 @@ fn get_word_score(word: &String, letter_frequency: &HashMap<char, u16>) -> u16 {
         true => (),
     });
 
-    score
+    score as f64
 }
 
 fn main() {
-    let wordlist = include_str!("words.txt")
-        .to_string()
-        .lines()
-        .map(|line| line.to_lowercase())
-        .filter(|word| word.len() == 5 && word.chars().all(char::is_alphabetic))
-        .collect::<Vec<String>>();
+    let wordlist = get_wordlist();
+
+    let mut cloned = wordlist.clone();
+    cloned.sort_by(|w1, w2| w2.1.cmp(&w1.1));
 
     let letter_frequency = get_letter_frequency(&wordlist);
 
     let mut scored_wordlist = wordlist
         .iter()
-        .map(|w| (w.to_owned(), get_word_score(w, &letter_frequency)))
-        .collect::<Vec<(String, u16)>>();
+        .map(|(word, ngram_score)| {
+            (
+                word.to_owned(),
+                FloatOrd(get_word_score(word, &letter_frequency) * ngram_score.0),
+            )
+        })
+        .collect::<Vec<(String, FloatOrd<f64>)>>();
 
     scored_wordlist.sort_by(|w1, w2| w2.1.cmp(&w1.1));
 
