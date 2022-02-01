@@ -50,15 +50,27 @@ fn get_letter_frequency(wordlist: &Vec<(String, FloatOrd<f64>)>) -> HashMap<char
 
     wordlist.iter().for_each(|(word, _)| {
         word.chars().for_each(|c| {
-            if charmap.contains_key(&c) {
-                (*charmap.get_mut(&c).unwrap()) += 1;
-            } else {
-                charmap.insert(c, 1);
-            }
+            charmap.update(c, 1);
         })
     });
 
     charmap
+}
+
+fn get_letter_pair_frequency(
+    wordlist: &Vec<(String, FloatOrd<f64>)>,
+) -> HashMap<(char, char), u16> {
+    let mut pairmap = HashMap::new();
+
+    wordlist.iter().for_each(|(word, _)| {
+        let char_vec = word.chars().collect::<Vec<_>>();
+        let mut char_window = char_vec.windows(2);
+        while let Some([first, second]) = char_window.next() {
+            pairmap.update((first.to_owned(), second.to_owned()), 1);
+        }
+    });
+
+    pairmap
 }
 
 fn get_word_score(word: &String, letter_frequency: &HashMap<char, u16>) -> f64 {
@@ -76,20 +88,38 @@ fn get_word_score(word: &String, letter_frequency: &HashMap<char, u16>) -> f64 {
     score as f64
 }
 
+fn get_word_score_pair(word: &String, pair_frequency: &HashMap<(char, char), u16>) -> f64 {
+    let mut seen_pairs: HashSet<(char, char)> = HashSet::new();
+    let mut score = 0;
+
+    let char_vec = word.chars().collect::<Vec<_>>();
+    let mut char_window = char_vec.windows(2);
+    while let Some([first, second]) = char_window.next() {
+        if !seen_pairs.contains(&(*first, *second)) {
+            score += pair_frequency[&(*first, *second)];
+            seen_pairs.insert((*first, *second));
+        }
+    }
+
+    score as f64
+}
+
 fn main() {
     let wordlist = get_wordlist();
 
-    let mut cloned = wordlist.clone();
-    cloned.sort_by(|w1, w2| w2.1.cmp(&w1.1));
-
     let letter_frequency = get_letter_frequency(&wordlist);
+    let pair_frequency = get_letter_pair_frequency(&wordlist);
 
     let mut scored_wordlist = wordlist
         .iter()
         .map(|(word, ngram_score)| {
             (
                 word.to_owned(),
-                FloatOrd(get_word_score(word, &letter_frequency) * ngram_score.0),
+                FloatOrd(
+                    get_word_score(word, &letter_frequency)
+                        * get_word_score_pair(word, &pair_frequency)
+                        * ngram_score.0,
+                ),
             )
         })
         .collect::<Vec<(String, FloatOrd<f64>)>>();
